@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_history: {
+        Row: {
+          bill_amount: number | null
+          bracket_id: number | null
+          created_at: string
+          id: string
+          kwh_usage: number
+          month: string
+          user_id: string
+        }
+        Insert: {
+          bill_amount?: number | null
+          bracket_id?: number | null
+          created_at?: string
+          id?: string
+          kwh_usage: number
+          month: string
+          user_id: string
+        }
+        Update: {
+          bill_amount?: number | null
+          bracket_id?: number | null
+          created_at?: string
+          id?: string
+          kwh_usage?: number
+          month?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_appliances: {
+        Row: {
+          created_at: string
+          hours_per_day: number
+          icon: string | null
+          id: string
+          name: string
+          name_ar: string | null
+          user_id: string
+          wattage: number
+        }
+        Insert: {
+          created_at?: string
+          hours_per_day?: number
+          icon?: string | null
+          id?: string
+          name: string
+          name_ar?: string | null
+          user_id: string
+          wattage: number
+        }
+        Update: {
+          created_at?: string
+          hours_per_day?: number
+          icon?: string | null
+          id?: string
+          name?: string
+          name_ar?: string | null
+          user_id?: string
+          wattage?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
