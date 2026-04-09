@@ -1,4 +1,4 @@
-import { Home, Calculator, Trophy, Users, MessageCircle } from "lucide-react";
+import { Home, Calculator, Trophy, Users, MessageCircle, UserCircle } from "lucide-react";
 
 interface BottomNavProps {
   active: string;
@@ -6,11 +6,11 @@ interface BottomNavProps {
 }
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Home", icon: Home },
-  { id: "calculator", label: "Calculator", icon: Calculator },
-  { id: "challenges", label: "Challenges", icon: Trophy },
-  { id: "community", label: "Community", icon: Users },
-  { id: "support", label: "Wafer Bot", icon: MessageCircle },
+  { id: "dashboard", label: "الرئيسية", icon: Home },
+  { id: "calculator", label: "الحاسبة", icon: Calculator },
+  { id: "challenges", label: "التحديات", icon: Trophy },
+  { id: "community", label: "المجتمع", icon: Users },
+  { id: "profile", label: "حسابي", icon: UserCircle },
 ];
 
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
