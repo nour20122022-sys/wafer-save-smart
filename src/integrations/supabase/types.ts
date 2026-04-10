@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string
+          description: string | null
+          earned_at: string
+          icon: string | null
+          id: string
+          title: string
+          title_ar: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          earned_at?: string
+          icon?: string | null
+          id?: string
+          title: string
+          title_ar?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          earned_at?: string
+          icon?: string | null
+          id?: string
+          title?: string
+          title_ar?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      meter_readings: {
+        Row: {
+          created_at: string
+          id: string
+          reading_date: string
+          reading_kwh: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reading_date?: string
+          reading_kwh: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reading_date?: string
+          reading_kwh?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -107,6 +188,51 @@ export type Database = {
           name_ar?: string | null
           user_id?: string
           wattage?: number
+        }
+        Relationships: []
+      }
+      user_challenges: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          progress_days: number
+          reward_points: number
+          status: string
+          title: string
+          title_ar: string | null
+          total_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          progress_days?: number
+          reward_points?: number
+          status?: string
+          title: string
+          title_ar?: string | null
+          total_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          progress_days?: number
+          reward_points?: number
+          status?: string
+          title?: string
+          title_ar?: string | null
+          total_days?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
