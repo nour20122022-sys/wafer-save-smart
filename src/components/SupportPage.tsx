@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useChatMessages, useAppliances, useMeterReadings } from "@/hooks/useUserData";
 
 interface Message {
   id: string;
@@ -14,18 +18,43 @@ const SUGGESTIONS = [
   "How do electricity brackets work?",
 ];
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
 export function SupportPage() {
+  const { user } = useAuth();
+  const { data: savedMessages } = useChatMessages();
+  const { data: appliances } = useAppliances();
+  const { data: readings } = useMeterReadings();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content:
-        "👋 Hi! I'm Wafer Bot, your energy-saving assistant powered by AI.\n\nI can help you with:\n• Personalized energy-saving tips\n• Understanding your electricity bill\n• Appliance recommendations\n• Egyptian tariff bracket questions\n\nWhat would you like to know?",
+      content: "👋 أهلاً! أنا **Wafer Bot**، مساعدك الذكي لتوفير الطاقة.\n\nأقدر أساعدك في:\n• نصائح توفير مخصصة ليك\n• فهم فاتورة الكهرباء والشرائح\n• اقتراح أجهزة موفرة\n• تخطيط تحديات التوفير\n\nإيه اللي عايز تعرفه؟",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load saved messages
+  useEffect(() => {
+    if (savedMessages && savedMessages.length > 0) {
+      const loaded: Message[] = savedMessages.map((m: any) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+      setMessages([
+        {
+          id: "welcome",
+          role: "assistant",
+          content: "👋 أهلاً! أنا **Wafer Bot**، مساعدك الذكي لتوفير الطاقة.\n\nأقدر أساعدك في:\n• نصائح توفير مخصصة ليك\n• فهم فاتورة الكهرباء والشرائح\n• اقتراح أجهزة موفرة\n• تخطيط تحديات التوفير\n\nإيه اللي عايز تعرفه؟",
+        },
+        ...loaded,
+      ]);
+    }
+  }, [savedMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,22 +67,98 @@ export function SupportPage() {
     setInput("");
     setIsLoading(true);
 
-    // Mock response for now — will integrate with Lovable Cloud + AI Gateway
-    setTimeout(() => {
-      const responses: Record<string, string> = {
-        default:
-          "Great question! Once the backend is connected, I'll analyze your appliance data and tariff bracket to give you personalized advice. Stay tuned! 🔌",
+    // Save user message to DB
+    if (user) {
+      supabase.from("chat_messages").insert({ user_id: user.id, role: "user", content: text.trim() }).then();
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const chatMessages = messages
+        .filter((m) => m.id !== "welcome")
+        .concat(userMsg)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const userContext = {
+        appliances: appliances || [],
+        recentReadings: readings || [],
       };
+
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ messages: chatMessages, userContext }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        throw new Error(`Error ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantSoFar = "";
+      let streamDone = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantSoFar += content;
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant" && last.id === "streaming") {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+                }
+                return [...prev, { id: "streaming", role: "assistant", content: assistantSoFar }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Finalize
+      setMessages((prev) =>
+        prev.map((m) => m.id === "streaming" ? { ...m, id: (Date.now() + 1).toString() } : m)
+      );
+
+      // Save to DB
+      if (user && assistantSoFar) {
+        supabase.from("chat_messages").insert({ user_id: user.id, role: "assistant", content: assistantSoFar }).then();
+      }
+    } catch (e) {
+      console.error("Chat error:", e);
       setMessages((prev) => [
         ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: responses.default,
-        },
+        { id: (Date.now() + 1).toString(), role: "assistant", content: "عذراً، حصل خطأ. حاول تاني بعد شوية 🙏" },
       ]);
-      setIsLoading(false);
-    }, 1000);
+    }
+
+    setIsLoading(false);
   };
 
   return (
@@ -70,35 +175,28 @@ export function SupportPage() {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-          >
-            <div
-              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-energy-green-light text-primary"
-              }`}
-            >
+          <div key={msg.id} className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-energy-green-light text-primary"
+            }`}>
               {msg.role === "user" ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
             </div>
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-tr-sm"
-                  : "bg-card text-card-foreground rounded-tl-sm shadow-sm"
-              }`}
-              style={msg.role === "assistant" ? { boxShadow: "var(--shadow-card)" } : undefined}
-            >
-              {msg.content}
+            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              msg.role === "user"
+                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                : "bg-card text-card-foreground rounded-tl-sm shadow-sm"
+            }`} style={msg.role === "assistant" ? { boxShadow: "var(--shadow-card)" } : undefined}>
+              {msg.role === "assistant" ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              ) : msg.content}
             </div>
           </div>
         ))}
-        {isLoading && (
+        {isLoading && messages[messages.length - 1]?.id !== "streaming" && (
           <div className="flex gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-energy-green-light text-primary flex items-center justify-center">
               <Bot className="w-3.5 h-3.5" />
@@ -115,29 +213,23 @@ export function SupportPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggestions */}
       {messages.length <= 1 && (
         <div className="flex flex-wrap gap-2 py-3">
           {SUGGESTIONS.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-2 rounded-full border border-border text-foreground hover:bg-muted transition-colors"
-            >
+            <button key={i} onClick={() => sendMessage(s)} className="text-xs px-3 py-2 rounded-full border border-border text-foreground hover:bg-muted transition-colors">
               {s}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
       <div className="flex items-center gap-2 pt-3 border-t border-border">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-          placeholder="Ask Wafer Bot..."
+          placeholder="اسأل Wafer Bot..."
           className="flex-1 px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <button
