@@ -1,32 +1,34 @@
 import { useState } from "react";
-import { DEFAULT_APPLIANCES, calculateApplianceMonthlyKwh, calculateBill, type Appliance } from "@/lib/tariff";
+import { DEFAULT_APPLIANCES, calculateApplianceMonthlyKwh, calculateBill } from "@/lib/tariff";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAppliances, useSaveAppliance, useDeleteAppliance, useUpdateApplianceHours, useMeterReadings, useSaveMeterReading } from "@/hooks/useUserData";
+import { toast } from "sonner";
 
 const COLORS = [
-  "hsl(158, 64%, 42%)",
-  "hsl(195, 80%, 50%)",
-  "hsl(45, 93%, 58%)",
-  "hsl(0, 72%, 55%)",
-  "hsl(270, 60%, 55%)",
-  "hsl(30, 85%, 55%)",
-  "hsl(180, 60%, 45%)",
-  "hsl(330, 60%, 55%)",
+  "hsl(158, 64%, 42%)", "hsl(195, 80%, 50%)", "hsl(45, 93%, 58%)", "hsl(0, 72%, 55%)",
+  "hsl(270, 60%, 55%)", "hsl(30, 85%, 55%)", "hsl(180, 60%, 45%)", "hsl(330, 60%, 55%)",
 ];
 
 export function CalculatorPage() {
+  const { user } = useAuth();
+  const { data: dbAppliances, isLoading } = useAppliances();
+  const { data: readings } = useMeterReadings();
+  const saveAppliance = useSaveAppliance();
+  const deleteAppliance = useDeleteAppliance();
+  const updateHours = useUpdateApplianceHours();
+  const saveMeterReading = useSaveMeterReading();
+
   const [meterReading, setMeterReading] = useState("");
-  const [appliances, setAppliances] = useState<Appliance[]>([
-    { id: "1", ...DEFAULT_APPLIANCES[0], hoursPerDay: 8 },
-    { id: "2", ...DEFAULT_APPLIANCES[1], hoursPerDay: 24 },
-    { id: "3", ...DEFAULT_APPLIANCES[5], hoursPerDay: 6 },
-  ]);
   const [showAddPanel, setShowAddPanel] = useState(false);
 
-  const chartData = appliances.map((a) => ({
+  const appliances = dbAppliances || [];
+
+  const chartData = appliances.map((a: any) => ({
     name: a.name,
-    icon: a.icon,
-    kwh: Math.round(calculateApplianceMonthlyKwh(a.wattage, a.hoursPerDay)),
+    icon: a.icon || "⚡",
+    kwh: Math.round(calculateApplianceMonthlyKwh(Number(a.wattage), Number(a.hours_per_day))),
   }));
 
   const totalKwh = chartData.reduce((sum, d) => sum + d.kwh, 0);
@@ -34,21 +36,27 @@ export function CalculatorPage() {
 
   const addAppliance = (idx: number) => {
     const template = DEFAULT_APPLIANCES[idx];
-    setAppliances((prev) => [
-      ...prev,
-      { id: Date.now().toString(), ...template, hoursPerDay: 2 },
-    ]);
+    saveAppliance.mutate({
+      name: template.name,
+      name_ar: template.nameAr,
+      icon: template.icon,
+      wattage: template.wattage,
+      hours_per_day: 2,
+    }, {
+      onSuccess: () => toast.success("تم إضافة الجهاز ✅"),
+    });
     setShowAddPanel(false);
   };
 
-  const removeAppliance = (id: string) => {
-    setAppliances((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const updateHours = (id: string, hours: number) => {
-    setAppliances((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, hoursPerDay: Math.max(0, Math.min(24, hours)) } : a))
-    );
+  const handleSaveMeterReading = () => {
+    const value = Number(meterReading);
+    if (!value || value <= 0) { toast.error("أدخل قراءة صحيحة"); return; }
+    saveMeterReading.mutate({ reading_kwh: value }, {
+      onSuccess: () => {
+        toast.success("تم حفظ القراءة ✅ الذكاء الاصطناعي بيحلل استهلاكك...");
+        setMeterReading("");
+      },
+    });
   };
 
   return (
@@ -60,20 +68,31 @@ export function CalculatorPage() {
 
       {/* Meter Reading */}
       <div className="bg-card rounded-xl p-5 shadow-sm" style={{ boxShadow: "var(--shadow-card)" }}>
-        <label className="text-sm font-medium text-foreground block mb-2">
-          Meter Reading (kWh)
-        </label>
-        <input
-          type="number"
-          value={meterReading}
-          onChange={(e) => setMeterReading(e.target.value)}
-          placeholder="Enter current reading..."
-          className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <p className="text-xs text-muted-foreground mt-2">📷 Camera OCR coming soon</p>
+        <label className="text-sm font-medium text-foreground block mb-2">Meter Reading (kWh)</label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={meterReading}
+            onChange={(e) => setMeterReading(e.target.value)}
+            placeholder="Enter current reading..."
+            className="flex-1 px-4 py-3 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            onClick={handleSaveMeterReading}
+            disabled={saveMeterReading.isPending}
+            className="px-4 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
+          >
+            <Save className="w-4 h-4" /> حفظ
+          </button>
+        </div>
+        {readings && readings.length > 0 && (
+          <p className="text-xs text-muted-foreground mt-2">
+            آخر قراءة: {Number(readings[0].reading_kwh)} kWh ({readings[0].reading_date})
+          </p>
+        )}
       </div>
 
-      {/* Consumption Chart */}
+      {/* Chart */}
       {appliances.length > 0 && (
         <div className="bg-card rounded-xl p-5 shadow-sm" style={{ boxShadow: "var(--shadow-card)" }}>
           <h2 className="text-sm font-semibold text-foreground mb-4">Consumption Breakdown</h2>
@@ -81,18 +100,8 @@ export function CalculatorPage() {
             <div className="w-40 h-40">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%" cy="50%"
-                    innerRadius={35}
-                    outerRadius={65}
-                    dataKey="kwh"
-                    strokeWidth={2}
-                    stroke="hsl(var(--card))"
-                  >
-                    {chartData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
+                  <Pie data={chartData} cx="50%" cy="50%" innerRadius={35} outerRadius={65} dataKey="kwh" strokeWidth={2} stroke="hsl(var(--card))">
+                    {chartData.map((_, i) => (<Cell key={i} fill={COLORS[i % COLORS.length]} />))}
                   </Pie>
                   <Tooltip formatter={(value: number) => [`${value} kWh`, ""]} />
                 </PieChart>
@@ -125,10 +134,7 @@ export function CalculatorPage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-foreground">My Appliances</h2>
-          <button
-            onClick={() => setShowAddPanel(!showAddPanel)}
-            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
+          <button onClick={() => setShowAddPanel(!showAddPanel)} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             <Plus className="w-3.5 h-3.5" /> Add
           </button>
         </div>
@@ -136,47 +142,43 @@ export function CalculatorPage() {
         {showAddPanel && (
           <div className="bg-muted rounded-xl p-3 mb-3 grid grid-cols-2 gap-2">
             {DEFAULT_APPLIANCES.map((a, i) => (
-              <button
-                key={i}
-                onClick={() => addAppliance(i)}
-                className="flex items-center gap-2 p-2.5 rounded-lg bg-card text-xs text-foreground hover:shadow-sm transition-shadow"
-              >
-                <span>{a.icon}</span>
-                <span>{a.name}</span>
+              <button key={i} onClick={() => addAppliance(i)} className="flex items-center gap-2 p-2.5 rounded-lg bg-card text-xs text-foreground hover:shadow-sm transition-shadow">
+                <span>{a.icon}</span><span>{a.name}</span>
               </button>
             ))}
           </div>
         )}
 
-        <div className="space-y-2">
-          {appliances.map((a) => (
-            <div
-              key={a.id}
-              className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              <span className="text-2xl">{a.icon}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{a.name}</p>
-                <p className="text-xs text-muted-foreground">{a.wattage}W</p>
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">Loading...</div>
+        ) : appliances.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">أضف أجهزتك لحساب استهلاكك 📊</div>
+        ) : (
+          <div className="space-y-2">
+            {appliances.map((a: any) => (
+              <div key={a.id} className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-3" style={{ boxShadow: "var(--shadow-card)" }}>
+                <span className="text-2xl">{a.icon || "⚡"}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{a.name}</p>
+                  <p className="text-xs text-muted-foreground">{Number(a.wattage)}W</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={Number(a.hours_per_day)}
+                    onChange={(e) => updateHours.mutate({ id: a.id, hours_per_day: Math.max(0, Math.min(24, Number(e.target.value))) })}
+                    className="w-14 text-center text-sm px-2 py-1.5 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    min={0} max={24}
+                  />
+                  <span className="text-xs text-muted-foreground">hrs</span>
+                </div>
+                <button onClick={() => deleteAppliance.mutate(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={a.hoursPerDay}
-                  onChange={(e) => updateHours(a.id, Number(e.target.value))}
-                  className="w-14 text-center text-sm px-2 py-1.5 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  min={0}
-                  max={24}
-                />
-                <span className="text-xs text-muted-foreground">hrs</span>
-              </div>
-              <button onClick={() => removeAppliance(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
