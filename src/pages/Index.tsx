@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { DashboardPage } from "@/components/DashboardPage";
 import { CalculatorPage } from "@/components/CalculatorPage";
 import { ChallengesPage } from "@/components/ChallengesPage";
-import { CommunityPage } from "@/components/CommunityPage";
+import { SupportPage } from "@/components/SupportPage";
 import { UserProfile } from "@/components/UserProfile";
 
 const Index = () => {
@@ -29,7 +29,7 @@ const Index = () => {
       case "dashboard": return <DashboardPage />;
       case "calculator": return <CalculatorPage />;
       case "challenges": return <ChallengesPage />;
-      case "community": return <CommunityPage />;
+      case "chat": return <SupportPage />;
       case "profile": return <UserProfile />;
       default: return <DashboardPage />;
     }
