@@ -1,9 +1,11 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile, useUsageHistory, useAchievements, useChallenges, useAppliances } from "@/hooks/useUserData";
-import { getRank, calculateBill, calculateApplianceMonthlyKwh } from "@/lib/tariff";
+import { getRankByChallenges, RANKS, calculateBill, calculateApplianceMonthlyKwh } from "@/lib/tariff";
 import { LogOut, Trophy, Zap, Star, TrendingDown, Award, Bell } from "lucide-react";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { toast } from "sonner";
+import { UsageChart } from "./UsageChart";
+import { Leaderboard } from "./Leaderboard";
 
 export function UserProfile() {
   const { user, signOut } = useAuth();
@@ -14,9 +16,9 @@ export function UserProfile() {
   const { data: appliances } = useAppliances();
 
   const points = profile?.points || 0;
-  const rank = getRank(points);
-
   const completedChallenges = challenges?.filter((c: any) => c.status === "completed").length || 0;
+  const rank = getRankByChallenges(completedChallenges, points);
+  const nextRank = RANKS.find(r => r.minPoints > points || r.minChallenges > completedChallenges);
   const totalAppliances = appliances?.length || 0;
 
   const totalKwh = appliances?.reduce((sum: number, a: any) =>
@@ -50,6 +52,13 @@ export function UserProfile() {
             <Star className="w-3 h-3" /> {points} pts
           </span>
         </div>
+        {nextRank && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {nextRank.minChallenges - completedChallenges > 0
+              ? `أكمل ${nextRank.minChallenges - completedChallenges} تحدي للترقية إلى ${nextRank.nameAr}`
+              : `${nextRank.minPoints - points} نقطة للترقية إلى ${nextRank.nameAr}`}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -75,6 +84,15 @@ export function UserProfile() {
         </div>
       </div>
 
+      {/* Usage Charts */}
+      <div>
+        <h2 className="text-sm font-semibold text-foreground mb-3">داشبورد الاستهلاك 📊</h2>
+        <UsageChart />
+      </div>
+
+      {/* Leaderboard */}
+      <Leaderboard />
+
       {achievements && achievements.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-foreground mb-3">الإنجازات 🏆</h2>
@@ -91,7 +109,7 @@ export function UserProfile() {
 
       {history && history.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">سجل الاستهلاك 📊</h2>
+          <h2 className="text-sm font-semibold text-foreground mb-3">سجل الاستهلاك</h2>
           <div className="space-y-2">
             {history.map((h: any) => (
               <div key={h.id} className="bg-card rounded-xl p-3 flex items-center justify-between shadow-sm" style={{ boxShadow: "var(--shadow-card)" }}>

@@ -1,4 +1,4 @@
-import { getRank, RANKS } from "@/lib/tariff";
+import { getRankByChallenges, RANKS } from "@/lib/tariff";
 import { Trophy, Star, Gift, ChevronRight, CheckCircle } from "lucide-react";
 import { useProfile, useChallenges, useUpdateChallengeProgress, useAchievements } from "@/hooks/useUserData";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ export function ChallengesPage() {
   const updateProgress = useUpdateChallengeProgress();
 
   const points = profile?.points || 0;
-  const rank = getRank(points);
+  const rank = getRankByChallenges(challenges?.filter((c: any) => c.status === "completed").length || 0, points);
   const nextRank = RANKS.find((r) => r.minPoints > points);
   const progress = nextRank ? ((points - rank.minPoints) / (nextRank.minPoints - rank.minPoints)) * 100 : 100;
 

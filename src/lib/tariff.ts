@@ -84,11 +84,17 @@ export const DAILY_MISSIONS = [
 ];
 
 export const RANKS = [
-  { level: 1, nameAr: "مبذر", nameEn: "Spender", minPoints: 0, color: "destructive" as const },
-  { level: 2, nameAr: "مبتدئ", nameEn: "Beginner", minPoints: 100, color: "secondary" as const },
-  { level: 3, nameAr: "صديق للبيئة", nameEn: "Eco-Friendly", minPoints: 300, color: "default" as const },
-  { level: 4, nameAr: "خبير توفير", nameEn: "Saving Expert", minPoints: 600, color: "default" as const },
+  { level: 1, nameAr: "مبذر", nameEn: "Spender", minPoints: 0, minChallenges: 0, color: "destructive" as const },
+  { level: 2, nameAr: "مبتدئ", nameEn: "Beginner", minPoints: 50, minChallenges: 0, color: "secondary" as const },
+  { level: 3, nameAr: "صديق للبيئة", nameEn: "Eco-Friendly", minPoints: 150, minChallenges: 10, color: "default" as const },
+  { level: 4, nameAr: "خبير توفير", nameEn: "Saving Expert", minPoints: 400, minChallenges: 30, color: "default" as const },
+  { level: 5, nameAr: "بطل الطاقة", nameEn: "Energy Champion", minPoints: 700, minChallenges: 40, color: "default" as const },
+  { level: 6, nameAr: "أسطورة التوفير", nameEn: "Saving Legend", minPoints: 1200, minChallenges: 60, color: "default" as const },
 ];
+
+export function getRankByChallenges(completedChallenges: number, points: number) {
+  return [...RANKS].reverse().find(r => points >= r.minPoints && completedChallenges >= r.minChallenges) || RANKS[0];
+}
 
 export function getRank(points: number) {
   return [...RANKS].reverse().find(r => points >= r.minPoints) || RANKS[0];
