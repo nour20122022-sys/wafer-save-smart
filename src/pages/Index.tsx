@@ -12,6 +12,7 @@ import { UserProfile } from "@/components/UserProfile";
 const Index = () => {
   const { user, loading } = useAuth();
   const [activePage, setActivePage] = useState("dashboard");
+  useRealtimeChallenges();
 
   if (loading) {
     return (
