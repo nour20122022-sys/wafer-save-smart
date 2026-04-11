@@ -1,4 +1,4 @@
-import { getRank, RANKS } from "@/lib/tariff";
+import { getRankByChallenges, RANKS } from "@/lib/tariff";
 import { Trophy, Star, Gift, ChevronRight, CheckCircle } from "lucide-react";
 import { useProfile, useChallenges, useUpdateChallengeProgress, useAchievements } from "@/hooks/useUserData";
 import { toast } from "sonner";
