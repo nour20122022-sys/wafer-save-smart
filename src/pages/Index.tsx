@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { useRealtimeChallenges } from "@/hooks/useRealtimeChallenges";
 import { useAuth } from "@/contexts/AuthContext";
 import { BottomNav } from "@/components/BottomNav";
 import { DashboardPage } from "@/components/DashboardPage";
