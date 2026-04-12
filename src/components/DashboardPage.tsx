@@ -38,17 +38,17 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <img src={waferLogo} alt="Wafer" width={40} height={40} />
-        <div>
+        <div className="flex items-center gap-1.5 bg-energy-green-light text-energy-green px-3 py-1.5 rounded-full">
+          <Zap className="w-3.5 h-3.5" />
+          <span className="text-xs font-semibold">Your PTS: {profile?.points || 0}</span>
+        </div>
+        <div className="flex-1 text-center">
           <h1 className="text-xl font-bold text-foreground">
             {profile?.display_name ? `أهلاً ${profile.display_name}` : "Wafer"} <span className="text-muted-foreground font-medium text-base">(وفّر)</span>
           </h1>
           <p className="text-xs text-muted-foreground">Save energy, save money</p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 bg-energy-green-light text-energy-green px-3 py-1.5 rounded-full">
-          <Zap className="w-3.5 h-3.5" />
-          <span className="text-xs font-semibold">{profile?.points || 0} pts</span>
-        </div>
+        <img src={waferLogo} alt="Wafer" width={40} height={40} />
       </div>
 
       <div className="bg-card rounded-2xl p-6 shadow-sm" style={{ boxShadow: "var(--shadow-card)" }}>
