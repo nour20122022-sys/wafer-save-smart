@@ -88,29 +88,40 @@ export function DailyMission() {
     fetchMission();
   }, [fetchMission]);
 
+  const generateAndSetNewMission = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-mission`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ type: "daily" }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.mission) {
+          setMission(data.mission);
+          localStorage.setItem(`${todayKey}_mission_${user!.id}`, JSON.stringify(data.mission));
+          setCompleted(false);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to generate new mission:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleComplete = async () => {
     if (!user || completed || saving || !mission) return;
     setSaving(true);
 
     try {
-      // Double-check server-side that today's mission isn't already done
-      const { data: existing } = await supabase
-        .from("user_challenges")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("total_days", 1)
-        .gte("created_at", `${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
-        .lte("created_at", `${new Date().toISOString().slice(0, 10)}T23:59:59Z`)
-        .eq("status", "completed");
-
-      if (existing && existing.length > 0) {
-        setCompleted(true);
-        localStorage.setItem(`${todayKey}_${user.id}`, "done");
-        toast.info("✅ أنت خلصت التحدي اليومي خلاص!");
-        setSaving(false);
-        return;
-      }
-
       const { error } = await supabase.from("user_challenges").insert({
         user_id: user.id,
         title: mission.title,
@@ -125,13 +136,14 @@ export function DailyMission() {
 
       if (error) throw error;
 
-      localStorage.setItem(`${todayKey}_${user.id}`, "done");
-      setCompleted(true);
-
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["challenges"] });
 
       toast.success(`🎉 +${mission.reward_points} نقطة! أحسنت يا بطل!`);
+
+      // Immediately generate a new mission instead of showing empty/completed state
+      localStorage.removeItem(`${todayKey}_mission_${user.id}`);
+      await generateAndSetNewMission();
     } catch (e) {
       console.error("Failed to save daily mission:", e);
       toast.error("حصل مشكلة، جرب تاني");
