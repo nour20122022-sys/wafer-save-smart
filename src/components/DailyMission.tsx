@@ -94,7 +94,7 @@ export function DailyMission() {
         if (data.mission) {
           setMission(data.mission);
           localStorage.setItem(`${todayKey}_mission_${user!.id}`, JSON.stringify(data.mission));
-          setCompleted(false);
+          
         }
       }
     } catch (e) {
@@ -105,7 +105,7 @@ export function DailyMission() {
   };
 
   const handleComplete = async () => {
-    if (!user || completed || saving || !mission) return;
+    if (!user || saving || !mission) return;
     setSaving(true);
 
     try {
