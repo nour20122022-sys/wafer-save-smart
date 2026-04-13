@@ -29,24 +29,7 @@ serve(async (req) => {
 
     const { type } = await req.json().catch(() => ({ type: "daily" }));
 
-    // Check if user already completed a daily mission today
-    const today = new Date().toISOString().slice(0, 10);
-    if (type === "daily") {
-      const { data: todayMissions } = await supabase
-        .from("user_challenges")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("total_days", 1)
-        .gte("created_at", `${today}T00:00:00Z`)
-        .lte("created_at", `${today}T23:59:59Z`)
-        .eq("status", "completed");
-
-      if (todayMissions && todayMissions.length > 0) {
-        return new Response(JSON.stringify({ already_completed: true, mission: null }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
+    // Always generate a new mission - no blocking
 
     // Fetch user data for personalization
     const [appliancesRes, readingsRes, challengesRes, profileRes] = await Promise.all([

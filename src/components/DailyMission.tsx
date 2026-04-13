@@ -26,14 +26,6 @@ export function DailyMission() {
   const fetchMission = useCallback(async () => {
     if (!user) return;
 
-    // Check localStorage first
-    const cached = localStorage.getItem(`${todayKey}_${user.id}`);
-    if (cached === "done") {
-      setCompleted(true);
-      setLoading(false);
-      return;
-    }
-
     // Check if we have a cached mission for today
     const cachedMission = localStorage.getItem(`${todayKey}_mission_${user.id}`);
     if (cachedMission) {
@@ -62,16 +54,12 @@ export function DailyMission() {
       if (!resp.ok) throw new Error("Failed to fetch mission");
 
       const data = await resp.json();
-      if (data.already_completed) {
-        setCompleted(true);
-        localStorage.setItem(`${todayKey}_${user.id}`, "done");
-      } else if (data.mission) {
+      if (data.mission) {
         setMission(data.mission);
         localStorage.setItem(`${todayKey}_mission_${user.id}`, JSON.stringify(data.mission));
       }
     } catch (e) {
       console.error("Failed to fetch daily mission:", e);
-      // Fallback
       setMission({
         title: "Energy Awareness",
         title_ar: "وعي الطاقة ⚡",
