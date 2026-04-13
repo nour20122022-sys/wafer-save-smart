@@ -1,68 +1,137 @@
-import { DAILY_MISSIONS } from "@/lib/tariff";
-import { Target, Star } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { Target, Star, Loader2, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile } from "@/hooks/useUserData";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+interface Mission {
+  title: string;
+  title_ar: string;
+  description: string;
+  reward_points: number;
+  total_days: number;
+}
+
 export function DailyMission() {
   const { user } = useAuth();
-  const { data: profile } = useProfile();
   const qc = useQueryClient();
-
-  const mission = useMemo(() => {
-    const today = new Date().getDate();
-    return DAILY_MISSIONS[today % DAILY_MISSIONS.length];
-  }, []);
-
-  const todayKey = `daily_mission_${new Date().toISOString().slice(0, 10)}`;
-  const [completed, setCompleted] = useState(() => {
-    if (!user) return false;
-    return localStorage.getItem(`${todayKey}_${user.id}`) === "done";
-  });
+  const [mission, setMission] = useState<Mission | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [completed, setCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Sync with localStorage when user changes
-  useEffect(() => {
-    if (user) {
-      setCompleted(localStorage.getItem(`${todayKey}_${user.id}`) === "done");
+  const todayKey = `daily_mission_${new Date().toISOString().slice(0, 10)}`;
+
+  const fetchMission = useCallback(async () => {
+    if (!user) return;
+
+    // Check localStorage first
+    const cached = localStorage.getItem(`${todayKey}_${user.id}`);
+    if (cached === "done") {
+      setCompleted(true);
+      setLoading(false);
+      return;
+    }
+
+    // Check if we have a cached mission for today
+    const cachedMission = localStorage.getItem(`${todayKey}_mission_${user.id}`);
+    if (cachedMission) {
+      try {
+        setMission(JSON.parse(cachedMission));
+        setLoading(false);
+        return;
+      } catch {}
+    }
+
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-mission`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ type: "daily" }),
+      });
+
+      if (!resp.ok) throw new Error("Failed to fetch mission");
+
+      const data = await resp.json();
+      if (data.already_completed) {
+        setCompleted(true);
+        localStorage.setItem(`${todayKey}_${user.id}`, "done");
+      } else if (data.mission) {
+        setMission(data.mission);
+        localStorage.setItem(`${todayKey}_mission_${user.id}`, JSON.stringify(data.mission));
+      }
+    } catch (e) {
+      console.error("Failed to fetch daily mission:", e);
+      // Fallback
+      setMission({
+        title: "Energy Awareness",
+        title_ar: "وعي الطاقة ⚡",
+        description: "Note your meter reading today",
+        reward_points: 15,
+        total_days: 1,
+      });
+    } finally {
+      setLoading(false);
     }
   }, [user, todayKey]);
 
+  useEffect(() => {
+    fetchMission();
+  }, [fetchMission]);
+
   const handleComplete = async () => {
-    if (!user || completed || saving) return;
+    if (!user || completed || saving || !mission) return;
     setSaving(true);
 
     try {
-      // Insert as a completed challenge
-      const { error: challengeError } = await supabase.from("user_challenges").insert({
+      // Double-check server-side that today's mission isn't already done
+      const { data: existing } = await supabase
+        .from("user_challenges")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("total_days", 1)
+        .gte("created_at", `${new Date().toISOString().slice(0, 10)}T00:00:00Z`)
+        .lte("created_at", `${new Date().toISOString().slice(0, 10)}T23:59:59Z`)
+        .eq("status", "completed");
+
+      if (existing && existing.length > 0) {
+        setCompleted(true);
+        localStorage.setItem(`${todayKey}_${user.id}`, "done");
+        toast.info("✅ أنت خلصت التحدي اليومي خلاص!");
+        setSaving(false);
+        return;
+      }
+
+      const { error } = await supabase.from("user_challenges").insert({
         user_id: user.id,
-        title: mission.textEn,
-        title_ar: mission.textAr,
-        description: `Daily mission - ${mission.textEn}`,
-        reward_points: mission.points,
+        title: mission.title,
+        title_ar: mission.title_ar,
+        description: `Daily mission - ${mission.description}`,
+        reward_points: mission.reward_points,
         total_days: 1,
         progress_days: 1,
         status: "completed",
         completed_at: new Date().toISOString(),
       });
 
-      if (challengeError) throw challengeError;
-
-      // The DB trigger `check_challenge_milestones` will add points automatically
-      // But for daily missions we also want immediate feedback, so update points directly
-      // (The trigger handles milestone bonuses on top of this)
+      if (error) throw error;
 
       localStorage.setItem(`${todayKey}_${user.id}`, "done");
       setCompleted(true);
 
-      // Invalidate queries to refresh points everywhere
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["challenges"] });
 
-      toast.success(`🎉 +${mission.points} نقطة! أحسنت يا بطل!`);
+      toast.success(`🎉 +${mission.reward_points} نقطة! أحسنت يا بطل!`);
     } catch (e) {
       console.error("Failed to save daily mission:", e);
       toast.error("حصل مشكلة، جرب تاني");
@@ -71,6 +140,15 @@ export function DailyMission() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="rounded-xl p-5 gradient-primary text-primary-foreground shadow-lg flex items-center justify-center gap-2">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="text-sm">جاري تحضير التحدي اليومي...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl p-5 gradient-primary text-primary-foreground shadow-lg">
       <div className="flex items-center gap-2 mb-3">
@@ -78,11 +156,16 @@ export function DailyMission() {
         <h3 className="font-bold text-sm">Daily Mission</h3>
         <div className="ml-auto flex items-center gap-1 text-xs opacity-90">
           <Star className="w-3.5 h-3.5" />
-          <span>+{mission.points} pts</span>
+          <span>+{mission?.reward_points || 0} pts</span>
         </div>
       </div>
-      <p className="text-sm font-medium mb-1">{mission.textEn}</p>
-      <p className="text-xs opacity-80 mb-4" dir="rtl">{mission.textAr}</p>
+      {mission && (
+        <>
+          <p className="text-sm font-medium mb-1">{mission.title}</p>
+          <p className="text-xs opacity-80 mb-1" dir="rtl">{mission.title_ar}</p>
+          <p className="text-xs opacity-70 mb-4">{mission.description}</p>
+        </>
+      )}
       <button
         onClick={handleComplete}
         disabled={completed || saving}
