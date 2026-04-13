@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function ChallengesPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: profile } = useProfile();
   const { data: challenges, isLoading } = useChallenges();
   const { data: achievements } = useAchievements();
