@@ -18,7 +18,6 @@ export function DailyMission() {
   const qc = useQueryClient();
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
-  const [completed, setCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const todayKey = `daily_mission_${new Date().toISOString().slice(0, 10)}`;
@@ -168,14 +167,10 @@ export function DailyMission() {
       )}
       <button
         onClick={handleComplete}
-        disabled={completed || saving}
-        className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all ${
-          completed
-            ? "bg-primary-foreground/20 cursor-default"
-            : "bg-primary-foreground/90 text-primary hover:bg-primary-foreground"
-        }`}
+        disabled={saving}
+        className="w-full py-2.5 rounded-lg text-sm font-semibold transition-all bg-primary-foreground/90 text-primary hover:bg-primary-foreground disabled:opacity-50"
       >
-        {saving ? "⏳ جاري الحفظ..." : completed ? "✅ Completed!" : "Mark as Done"}
+        {saving ? "⏳ جاري الحفظ..." : "Mark as Done ✅"}
       </button>
     </div>
   );
