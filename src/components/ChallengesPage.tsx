@@ -2,8 +2,13 @@ import { getRankByChallenges, RANKS } from "@/lib/tariff";
 import { Trophy, Star, Gift, ChevronRight, CheckCircle } from "lucide-react";
 import { useProfile, useChallenges, useUpdateChallengeProgress, useAchievements } from "@/hooks/useUserData";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function ChallengesPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: profile } = useProfile();
   const { data: challenges, isLoading } = useChallenges();
   const { data: achievements } = useAchievements();
@@ -17,6 +22,38 @@ export function ChallengesPage() {
   const activeChallenges = challenges?.filter((c: any) => c.status === "active") || [];
   const completedChallenges = challenges?.filter((c: any) => c.status === "completed") || [];
 
+  const generateNewChallenge = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-daily-mission`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ type: "challenge" }),
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data.mission && user) {
+        await supabase.from("user_challenges").insert({
+          user_id: user.id,
+          title: data.mission.title,
+          title_ar: data.mission.title_ar,
+          description: data.mission.description,
+          reward_points: data.mission.reward_points,
+          total_days: data.mission.total_days,
+        });
+        qc.invalidateQueries({ queryKey: ["challenges"] });
+        toast.info(`🎯 تحدي جديد: ${data.mission.title_ar}`);
+      }
+    } catch (e) {
+      console.error("Failed to generate new challenge:", e);
+    }
+  };
+
   const handleProgress = (challenge: any) => {
     const newProgress = challenge.progress_days + 1;
     const isComplete = newProgress >= challenge.total_days;
@@ -26,8 +63,13 @@ export function ChallengesPage() {
       status: isComplete ? "completed" : undefined,
     }, {
       onSuccess: () => {
-        if (isComplete) toast.success(`🎉 أحسنت! أكملت تحدي "${challenge.title}"! +${challenge.reward_points} نقطة`);
-        else toast.success(`يوم ${newProgress}/${challenge.total_days} ✅`);
+        if (isComplete) {
+          toast.success(`🎉 أحسنت! أكملت تحدي "${challenge.title}"! +${challenge.reward_points} نقطة`);
+          // Auto-generate a new challenge via AI
+          generateNewChallenge();
+        } else {
+          toast.success(`يوم ${newProgress}/${challenge.total_days} ✅`);
+        }
       },
     });
   };
