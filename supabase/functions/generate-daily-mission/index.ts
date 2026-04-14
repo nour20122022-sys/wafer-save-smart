@@ -47,6 +47,7 @@ serve(async (req) => {
     const profile = profileRes.data;
 
     const totalKwh = appliances.reduce((s: number, a: any) => s + (a.wattage * a.hours_per_day * 30) / 1000, 0);
+    const today = new Date().toISOString().slice(0, 10);
 
     const missionType = type === "daily" ? "مهمة يومية قصيرة (يوم واحد)" : "تحدي جديد (3-7 أيام)";
     const pointsRange = type === "daily" ? "10-30" : "40-100";
