@@ -134,8 +134,9 @@ export function ChallengesPage() {
         {isLoading ? (
           <div className="text-center py-4 text-sm text-muted-foreground">Loading...</div>
         ) : activeChallenges.length === 0 ? (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            لسه مفيش تحديات. أضف أجهزتك في الحاسبة والذكاء الاصطناعي هيقترح تحديات مخصصة ليك! 🤖
+          <div className="text-center py-4 text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            جاري تحضير تحدي جديد...
           </div>
         ) : (
           <div className="space-y-2.5">
