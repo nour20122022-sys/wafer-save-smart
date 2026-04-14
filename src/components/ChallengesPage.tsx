@@ -34,6 +34,7 @@ export function ChallengesPage() {
   }, [isLoading, activeChallenges.length, user]);
 
   const generateNewChallenge = async () => {
+    setGeneratingChallenge(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -62,6 +63,8 @@ export function ChallengesPage() {
       }
     } catch (e) {
       console.error("Failed to generate new challenge:", e);
+    } finally {
+      setGeneratingChallenge(false);
     }
   };
 
