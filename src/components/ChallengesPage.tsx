@@ -1,10 +1,11 @@
 import { getRankByChallenges, RANKS } from "@/lib/tariff";
-import { Trophy, Star, Gift, ChevronRight, CheckCircle } from "lucide-react";
+import { Trophy, Star, Gift, ChevronRight, CheckCircle, Loader2 } from "lucide-react";
 import { useProfile, useChallenges, useUpdateChallengeProgress, useAchievements } from "@/hooks/useUserData";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
 export function ChallengesPage() {
   const { user } = useAuth();
