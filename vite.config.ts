@@ -1,20 +1,17 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/react-swc'
+import react from '@vitejs/plugin-react' // شيلنا كلمة swc من هنا
 import path from 'path'
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  // هذا هو السطر الأهم لحل مشكلة الصفحة البيضاء في GitHub Pages
+export default defineConfig({
   base: '/wafer-save-smart/', 
-  
+  plugins: [react()],
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}))
+})
